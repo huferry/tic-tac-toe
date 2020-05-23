@@ -281,6 +281,13 @@ const calculateMove = board => {
         return move
     }
 
+    move = getMoveTwoStepWin(board, side === 'x' ? 'o' : 'x')
+    if (move) {
+        move = { ...move, ...{side} }
+        log(`Found a move to block oponent's 2-step for ${side}: ${JSON.stringify(move)}`)
+        return move
+    }
+
     move = getMoveToCorner(board, side)
     if (move) {
         log(`Found a corner for ${side}: ${JSON.stringify(move)}`)
