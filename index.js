@@ -205,8 +205,34 @@ const getMoveTwoStepWin = (board, side) => {
     }
 }
 
-const canWin = (board, move) => {
-    return getMoveToWin(updateBoard(board, move), move.side) !== undefined 
+const isEdge = cell => {
+    return (cell.row === 1 && cell.col !== 1)
+        || (cell.row !== 1 && cell.col === 1)
+}
+
+const getOppositeEdgeSide = (board, cell) => {
+    if (!cell || !isEdge(cell)) return
+
+    return cell.row === 1
+        ? board[1][cell.col === 0 ? 2 : 0]
+        : board[cell.row === 0 ? 2 : 0][1]
+}
+
+const getEdges = board => getAllCells(board).filter(isEdge)
+
+const getEdgesWithEmptyOpposite = (board, side) => {
+    return getEdges(board)
+        .filter(cell => cell.side === side)
+        .filter(cell => getOppositeEdgeSide(board, cell) === null)
+}
+
+const getMoveExecuteTwoStepWinning = (board, side) => {
+
+    if (board[1][1] !== null) return
+
+    if (getEdgesWithEmptyOpposite(board, side).length > 1) {
+        return { row: 1, col: 1, side}
+    }
 }
 
 const getMoveToCorner = (board, side) => {
@@ -256,14 +282,14 @@ const calculateMove = board => {
 
     log(`Calculating move for ${side}`)
 
-    let move = getMoveToWin(board, side)
+    let move = getMoveAvoidCenter(board, side)
 
     if (getEmptyCells(board).length === 9) {
-        move = getMoveAvoidCenter(board, side)
         log(`Empty board, avoid center for ${side}: ${JSON.stringify(move)}`)
         return move
     }
 
+    move = getMoveToWin(board, side)
     if (move) {
         log(`Found a move to win for ${side}: ${JSON.stringify(move)}`)
         return move
@@ -272,6 +298,18 @@ const calculateMove = board => {
     move = getMoveToBlock(board, side)
     if (move) {
         log(`Found a move to block for ${side}: ${JSON.stringify(move)}`)
+        return move
+    }
+
+    move = getMoveExecuteTwoStepWinning(board, side === 'x' ? 'o' : 'x')
+    if (move) {
+        log(`Found a move to avoid execution of 2-step for ${side}: ${JSON.stringify(move)}`)
+        return { ...move, ...{ side } }
+    }
+
+    move = getMoveExecuteTwoStepWinning(board, side)
+    if (move) {
+        log(`Found a move to execute 2-step for ${side}: ${JSON.stringify(move)}`)
         return move
     }
 
