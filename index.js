@@ -275,16 +275,16 @@ const calculateMove = board => {
         return move
     }
 
-    move = getMoveTwoStepWin(board, side)
-    if (move) {
-        log(`Found a move to 2-step winning for ${side}: ${JSON.stringify(move)}`)
-        return move
-    }
-
     move = getMoveTwoStepWin(board, side === 'x' ? 'o' : 'x')
     if (move) {
         move = { ...move, ...{side} }
         log(`Found a move to block oponent's 2-step for ${side}: ${JSON.stringify(move)}`)
+        return move
+    }
+
+    move = getMoveTwoStepWin(board, side)
+    if (move) {
+        log(`Found a move to 2-step winning for ${side}: ${JSON.stringify(move)}`)
         return move
     }
 
@@ -304,7 +304,12 @@ const calculateMove = board => {
 module.exports = {
     setLogger: customLogger => { logger = customLogger },
 
-    newBoard: () => createEmptyBoard(),
+    newBoard: setFirstMove => {
+        const board = createEmptyBoard()
+        return setFirstMove
+            ? updateBoard(board, calculateMove(board))
+            : board
+    },
 
     draw: board => {
         const drawRow = row => 
