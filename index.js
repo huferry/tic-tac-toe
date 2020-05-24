@@ -368,6 +368,8 @@ module.exports = {
 
     getWinner, 
 
+    isTie: board => getEmptyCells(board).length === 0,
+
     getPossibleMoves: board => {
         const side = nextTurn(board)
         return getAllCells(board)
