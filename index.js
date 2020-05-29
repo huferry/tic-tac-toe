@@ -163,76 +163,9 @@ const getDistance = (board, moves) => {
             return total + Math.sqrt( dr * dr + dc * dc )
         }, 0)
 }
-
-const getMoveTwoStepWin = (board, side) => {
-    const otherSide = side === 'x' ? 'o' : 'x'
-    const allTwoMoves = getAllTwoEmpties(board, side)
-        .map(move => {
-            return [
-                {...move[0], ...{side}},
-                {...move[1], ...{side}}
-            ]
-        })
-        .map(moves => {
-            const updatedBoard = updateBoard(updateBoard(board, moves[0]), moves[1])
-            const movesToWin = getMovesToWin(updatedBoard, side) || []
-            const moveToBlock = getMoveToBlock(updatedBoard, otherSide)
-            const winner = getWinner(updatedBoard)
-            const distance = getDistance(updatedBoard, moves)
-            const directWin1 = getMoveToWin(updateBoard(board, moves[0]), side)
-            const directWin2 = getMoveToWin(updateBoard(board, moves[1]), side)
-            return { moves, board: updatedBoard, movesToWin, winner, moveToBlock, distance, directWin1, directWin2 }
-        })
-        .filter(m => m.winner == undefined 
-                && m.movesToWin.length > 1
-                && (m.directWin1 === undefined || m.directWin2 === undefined)
-        )
-        .sort((a,b) => b.distance - a.distance)
-    
-    const possibleMove = allTwoMoves && allTwoMoves[0]
-
-    if (possibleMove !== undefined) {
-        const filtered = possibleMove.moves
-            .map(move => {
-                const updatedBoard = updateBoard(board, move)
-                const moveToWin = getMovesToWin(updatedBoard, side)
-                return { move, moveToWin }
-            })
-            .filter(m => m.moveToWin.length === 0)
-            .map(m => m.move)
-        
-        if (filtered.length > 0) return filtered[0]
-    }
-}
-
 const isEdge = cell => {
     return (cell.row === 1 && cell.col !== 1)
         || (cell.row !== 1 && cell.col === 1)
-}
-
-const getOppositeEdgeSide = (board, cell) => {
-    if (!cell || !isEdge(cell)) return
-
-    return cell.row === 1
-        ? board[1][cell.col === 0 ? 2 : 0]
-        : board[cell.row === 0 ? 2 : 0][1]
-}
-
-const getEdges = board => getAllCells(board).filter(isEdge)
-
-const getEdgesWithEmptyOpposite = (board, side) => {
-    return getEdges(board)
-        .filter(cell => cell.side === side)
-        .filter(cell => getOppositeEdgeSide(board, cell) === null)
-}
-
-const getMoveExecuteTwoStepWinning = (board, side) => {
-
-    if (board[1][1] !== null) return
-
-    if (getEdgesWithEmptyOpposite(board, side).length > 1) {
-        return { row: 1, col: 1, side}
-    }
 }
 
 const getMoveToCorner = (board, side) => {
@@ -276,16 +209,77 @@ const getMoveAvoidCenter = (board, side) => {
     return center.length > 0 ? center[0] : undefined
 }
 
+const hasConfidence = (board, side) => getMovesToWin(board, side).length > 1
+
+const getMoveToConfidence = (board, side) => {
+    if (hasConfidence(board, side)) return []
+
+    const candidates = getEmptyCells(board)
+        .map(cell => {
+            return { ...cell, ...{side} }
+        })
+        .filter(move => {
+            const hypoBoard = updateBoard(board, move)
+            return hasConfidence(hypoBoard, side)
+        })
+    return pickOne(candidates)
+}
+
+const getMoveTwoStepsConfidence = (board, side) => {
+    const pairs = getAllTwoEmpties(board)
+        .map(([cell1, cell2]) => {
+            const move1 = { ...cell1, ...{side}}
+            const move2 = { ...cell2, ...{side}}
+            return [move1, move2]
+        })
+        .filter(([move1, move2]) => {
+            const hypoBoard = updateBoard(updateBoard(board, move1), move2)
+            return hasConfidence(hypoBoard, side)
+        })
+        .map(([move1, move2]) => {
+            if (getMovesToWin(updateBoard(board, move1), side).length === 0) return move1
+            if (getMovesToWin(updateBoard(board, move2), side).length === 0) return move2
+        })
+        .filter(m => m !== undefined)
+
+    return pickOne(pairs)
+}
+
+const isCorner = cell => cell.row !== 1 && cell.col !== 1
+
+const getMoveSecondStep = (board, side) => {
+    const occupiedCells = getAllCells(board).filter(x => x.side !== null)
+
+    const onlyOccupiedCell = occupiedCells.length === 1 ? occupiedCells[0] : undefined
+
+    if (onlyOccupiedCell) {
+        if (isEdge(onlyOccupiedCell)) return { side, row: 1, col: 1}
+
+        if (isCorner(onlyOccupiedCell)) return {
+            side,
+            col: onlyOccupiedCell.col === 0 ? 2 : 0,
+            row: onlyOccupiedCell.row === 0 ? 2 : 0
+        }
+    }
+}
+
 const calculateMove = board => {
     if (hasWinner(board)) return undefined
     const side = nextTurn(board)
+    const otherSide = side === 'x' ? 'o' : 'x'
 
     log(`Calculating move for ${side}`)
 
-    let move = getMoveAvoidCenter(board, side)
+    let move = getMoveToCorner(board, side)
 
     if (getEmptyCells(board).length === 9) {
-        log(`Empty board, avoid center for ${side}: ${JSON.stringify(move)}`)
+        log(`Empty board, get corner for ${side}: ${JSON.stringify(move)}`)
+        return move
+    }
+
+    move = getMoveSecondStep(board, side)
+    if (move) {
+        log(`Found second move strategy for ${side}: ${JSON.stringify(move)}`)
         return move
     }
 
@@ -301,34 +295,22 @@ const calculateMove = board => {
         return move
     }
 
-    move = getMoveExecuteTwoStepWinning(board, side === 'x' ? 'o' : 'x')
+    move = getMoveToConfidence(board, otherSide)
     if (move) {
-        log(`Found a move to avoid execution of 2-step for ${side}: ${JSON.stringify(move)}`)
-        return { ...move, ...{ side } }
-    }
-
-    move = getMoveExecuteTwoStepWinning(board, side)
-    if (move) {
-        log(`Found a move to execute 2-step for ${side}: ${JSON.stringify(move)}`)
+        move.side = side
+        log(`Found a move to couter confidence for ${side}: ${JSON.stringify(move)}`)
         return move
     }
 
-    move = getMoveTwoStepWin(board, side === 'x' ? 'o' : 'x')
+    move = getMoveToConfidence(board, side)
     if (move) {
-        move = { ...move, ...{side} }
-        log(`Found a move to block oponent's 2-step for ${side}: ${JSON.stringify(move)}`)
+        log(`Found a move to confidence for ${side}: ${JSON.stringify(move)}`)
         return move
     }
 
-    move = getMoveTwoStepWin(board, side)
+    move = getMoveTwoStepsConfidence(board, side)
     if (move) {
-        log(`Found a move to 2-step winning for ${side}: ${JSON.stringify(move)}`)
-        return move
-    }
-
-    move = getMoveToCorner(board, side)
-    if (move) {
-        log(`Found a corner for ${side}: ${JSON.stringify(move)}`)
+        log(`Found move for 2-step confidence for ${side}: ${JSON.stringify(move)}`)
         return move
     }
 

@@ -5,9 +5,7 @@ game.setLogger((log) => console.log(log))
 let board = game.newBoard()
 let winner = undefined
 
-board = game.setMove(board, { side: 'x', row: 1, col: 0 })
-board = game.setMove(board, { side: 'o', row: 0, col: 0 })
-board = game.setMove(board, { side: 'x', row: 0, col: 1 })
+console.log(game.draw(board))
 
 while (!winner) {
     const move = game.calculateMove(board)
@@ -18,6 +16,7 @@ while (!winner) {
     board = game.setMove(board, move)
     console.log(game.draw(board))
     winner = game.getWinner(board)
+    
 }
 
 console.log('winner', winner)
