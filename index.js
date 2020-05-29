@@ -253,13 +253,9 @@ const getMoveSecondStep = (board, side) => {
     const onlyOccupiedCell = occupiedCells.length === 1 ? occupiedCells[0] : undefined
 
     if (onlyOccupiedCell) {
-        if (isEdge(onlyOccupiedCell)) return { side, row: 1, col: 1}
-
-        if (isCorner(onlyOccupiedCell)) return {
-            side,
-            col: onlyOccupiedCell.col === 0 ? 2 : 0,
-            row: onlyOccupiedCell.row === 0 ? 2 : 0
-        }
+        if (onlyOccupiedCell.col === 1 && onlyOccupiedCell.row === 1)
+            return getMoveToCorner(board, side)
+        return { side, col: 1, row: 1}
     }
 }
 
