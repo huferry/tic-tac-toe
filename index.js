@@ -211,10 +211,10 @@ const getMoveAvoidCenter = (board, side) => {
 
 const hasConfidence = (board, side) => getMovesToWin(board, side).length > 1
 
-const getMoveToConfidence = (board, side) => {
+const getAllMovesToConfidence = (board, side) => {
     if (hasConfidence(board, side)) return []
 
-    const candidates = getEmptyCells(board)
+    return getEmptyCells(board)
         .map(cell => {
             return { ...cell, ...{side} }
         })
@@ -222,11 +222,12 @@ const getMoveToConfidence = (board, side) => {
             const hypoBoard = updateBoard(board, move)
             return hasConfidence(hypoBoard, side)
         })
-    return pickOne(candidates)
 }
 
-const getMoveTwoStepsConfidence = (board, side) => {
-    const pairs = getAllTwoEmpties(board)
+const getMoveToConfidence = (board, side) => pickOne(getAllMovesToConfidence(board, side))
+
+const getPairsToConfidence = (board, side) => 
+    getAllTwoEmpties(board)
         .map(([cell1, cell2]) => {
             const move1 = { ...cell1, ...{side}}
             const move2 = { ...cell2, ...{side}}
@@ -242,6 +243,31 @@ const getMoveTwoStepsConfidence = (board, side) => {
         })
         .filter(m => m !== undefined)
 
+const getMoveTwoStepsConfidence = (board, side) => {
+    const pairs = getPairsToConfidence(board, side)
+    return pickOne(pairs)
+}
+
+const getMoveCounterTwoStepsConfidence = (board, side) => {
+
+    const allX = getAllCells(board).filter(x => x.side === 'x').length
+    const allO = getAllCells(board).filter(x => x.side === 'o').length
+
+    if (allX === allO) return
+
+    const otherSide = side === 'x' ? 'o' : 'x'
+
+    const pairs = getAllMovesToConfidence(board, otherSide)
+        .map(move => {
+            move.side = side
+            return move
+        })
+        .filter(move => {
+            const hypoBoard = updateBoard(board, move)
+            return getMovesToWin(hypoBoard, side).length > 0
+        })
+
+    console.log('pairs', pairs)
     return pickOne(pairs)
 }
 
@@ -294,7 +320,7 @@ const calculateMove = board => {
         return move
     }
 
-    move = getMoveToConfidence(board, otherSide)
+    move = getMoveCounterTwoStepsConfidence(board, side)
     if (move) {
         move.side = side
         log(`Found a move to couter confidence for ${side}: ${JSON.stringify(move)}`)
