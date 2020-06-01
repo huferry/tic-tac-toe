@@ -280,12 +280,30 @@ const getMoveSecondStep = (board, side) => {
 
     if (onlyOccupiedCell) {
         if (isEdge(onlyOccupiedCell)) return { side, col: 1, row: 1}
-        if (isCorner(onlyOccupiedCell)) return {
-            side,
-            col: onlyOccupiedCell.col === 2 ? 0 : 2,
-            row: onlyOccupiedCell.row === 2 ? 0 : 2
+        if (isCorner(onlyOccupiedCell)) {
+            const candidates = [
+                { side, col: 1, row: onlyOccupiedCell.row },
+                { side, col: onlyOccupiedCell.col, row: 1 }
+            ]
+            return pickOne(candidates)
         }
     }
+}
+
+const getMoveToThread = (board, side) => {
+    const candidates = getEmptyCells(board)
+        .map(cell => {
+            return {
+                ...cell,
+                ...{side}
+            }
+        })
+        .filter(move => {
+            const hypoBoard = updateBoard(board, move)
+            const movesToWin = getMovesToWin(hypoBoard, side)
+            return movesToWin && movesToWin.length > 0
+        })
+    return pickOne(candidates)
 }
 
 const calculateMove = board => {
@@ -327,6 +345,13 @@ const calculateMove = board => {
         return move
     }
 
+    move = getMoveToConfidence(board, otherSide)
+    if (move) {
+        move.side = side
+        log(`Found a move to avoid confidence for ${side}: ${JSON.stringify(move)}`)
+        return move
+    }
+
     move = getMoveToConfidence(board, side)
     if (move) {
         log(`Found a move to confidence for ${side}: ${JSON.stringify(move)}`)
@@ -336,6 +361,12 @@ const calculateMove = board => {
     move = getMoveTwoStepsConfidence(board, side)
     if (move) {
         log(`Found move for 2-step confidence for ${side}: ${JSON.stringify(move)}`)
+        return move
+    }
+
+    move = getMoveToThread(board, side)
+    if (move) {
+        log(`Found move to thread for ${side}: ${JSON.stringify(move)}`)
         return move
     }
 
